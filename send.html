@@ -3,61 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Send Message</title>
+    <title>Send Secret Message</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    
     <style>
-        body { margin: 0; font-family: sans-serif; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; color: #fff; overflow: hidden; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; color: #fff; overflow: hidden; }
         .bg-glow { position: absolute; width: 350px; height: 350px; background: #ff0050; filter: blur(120px); opacity: 0.25; z-index: -1; }
+        
         .card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(25px); padding: 40px 25px; border-radius: 40px; width: 90%; max-width: 380px; text-align: center; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 25px 50px rgba(0,0,0,0.6); animation: slideUp 0.6s ease; }
+        
         .profile-img { width: 100px; height: 100px; border-radius: 50%; border: 4px solid #ff0050; margin-top: -90px; background: #111; box-shadow: 0 10px 25px rgba(255,0,80,0.3); object-fit: cover; }
+        
         h2 { margin: 15px 0 5px; font-size: 24px; color: #fff; }
+        
         textarea { width: 100%; height: 160px; background: rgba(0,0,0,0.4); border: 1.5px solid #333; color: white; padding: 20px; border-radius: 25px; margin: 20px 0; outline: none; resize: none; box-sizing: border-box; font-size: 16px; transition: 0.3s; }
         textarea:focus { border-color: #ff0050; background: rgba(0,0,0,0.6); }
+        
         button { background: #fff; color: #000; border: none; padding: 18px; border-radius: 50px; font-weight: bold; width: 100%; cursor: pointer; font-size: 18px; transition: 0.3s; box-shadow: 0 5px 15px rgba(255,255,255,0.2); }
-        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        button:active { transform: scale(0.95); }
+        button:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+        /* Success Message Style */
+        #status-msg { display: none; margin-top: 15px; font-weight: bold; font-size: 16px; color: #00ff88; animation: fadeIn 0.5s ease; }
+
         @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
     <div class="bg-glow"></div>
     <div class="card">
         <img id="p-img" class="profile-img" src="" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
+        
         <h2 id="user-display">@Loading...</h2>
         <p style="color:#ccc; font-size: 14px;">எனக்குத் தெரியாமல் ரகசியமாகச் சொல்லுங்கள்...</p>
+        
         <textarea id="message" placeholder="Type your secret message here..."></textarea>
+        
         <button id="send-btn" onclick="sendNGL()">SEND NOW 🚀</button>
+        
+        <div id="status-msg">Sent your secret message! 🎉</div>
     </div>
 
     <script>
-        const firebaseConfig = { apiKey: "AIzaSyBLyf_dz6xPC9wdthZSVtpatkc8JgFhE4Q", databaseURL: "https://chatbox-chats-default-rtdb.firebaseio.com" };
+        // Firebase Configuration
+        const firebaseConfig = { 
+            apiKey: "AIzaSyBLyf_dz6xPC9wdthZSVtpatkc8JgFhE4Q", 
+            databaseURL: "https://chatbox-chats-default-rtdb.firebaseio.com" 
+        };
+        
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        const user = new URLSearchParams(window.location.search).get('u') || "Anonymous";
+        // Get Username from URL
+        const params = new URLSearchParams(window.location.search);
+        const user = params.get('u') || "Anonymous";
+        
         document.getElementById('user-display').innerText = "@" + user;
         document.getElementById('p-img').src = `https://unavatar.io/instagram/${user}`;
 
-        function sendNGL() {
-            const msg = document.getElementById('message').value.trim();
+        // Glitter/Confetti Celebration Function
+        function celebrate() {
+            var duration = 3 * 1000;
+            var end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 7,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#ff0050', '#00ff88', '#ffffff']
+                });
+                confetti({
+                    particleCount: 7,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#ff0050', '#00ff88', '#ffffff']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
+        // Fast Sending Function
+        async function sendNGL() {
+            const msgInput = document.getElementById('message');
+            const msg = msgInput.value.trim();
             const btn = document.getElementById('send-btn');
-            if(msg) {
+            const statusMsg = document.getElementById('status-msg');
+            
+            if(!msg) {
+                alert("ஏதாவது டைப் செய்யவும்!");
+                return;
+            }
+
+            try {
                 btn.disabled = true;
                 btn.innerText = "Sending...";
-                
-                db.ref('users/' + user + '/messages').push({ 
+
+                // Push to Firebase
+                await db.ref('users/' + user + '/messages').push({ 
                     text: msg, 
                     timestamp: firebase.database.ServerValue.TIMESTAMP 
-                })
-                .then(() => { 
-                    confetti(); 
-                    alert("Sent! ✅"); 
-                    document.getElementById('message').value = ""; 
+                });
+
+                // Success Actions
+                celebrate(); // Glitter effect
+                statusMsg.style.display = "block"; // Green success text
+                msgInput.value = ""; // Clear input
+                btn.innerText = "Sent! ✅";
+                
+                // 3 விநாடிகளுக்குப் பிறகு பட்டனை பழைய நிலைக்கு மாற்ற
+                setTimeout(() => {
                     btn.disabled = false;
                     btn.innerText = "SEND NOW 🚀";
-                })
-                .catch(e => { alert("Error: " + e.message); btn.disabled = false; });
+                    statusMsg.style.display = "none";
+                }, 4000);
+
+            } catch (e) {
+                console.error(e);
+                alert("Message அனுப்ப முடியவில்லை! (Check Firebase Rules)");
+                btn.disabled = false;
+                btn.innerText = "SEND NOW 🚀";
             }
         }
     </script>
